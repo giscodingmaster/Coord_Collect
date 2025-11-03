@@ -1,88 +1,688 @@
-    <script>
-        // Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBZByigYzVFczxSpLnhxbHMZURWfQCjpW8",
-            authDomain: "coord-collect.firebaseapp.com",
-            databaseURL: "https://coord-collect-default-rtdb.firebaseio.com",
-            projectId: "coord-collect",
-            storageBucket: "coord-collect.firebasestorage.app",
-            messagingSenderId: "694407331617",
-            appId: "1:694407331617:web:6c3e3f90ba82c465cac860",
-            measurementId: "G-Y0K8C4YBWV"
-        };
-        
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-        const recordsRef = database.ref('records');
-        
-        let records = [];
-        let editingId = null;
-        
-        // Load records from Firebase
-        function loadRecords() {
-            recordsRef.on('value', (snapshot) => {
-                records = [];
-                snapshot.forEach((childSnapshot) => {
-                    records.push({
-                        id: childSnapshot.key,
-                        ...childSnapshot.val()
-                    });
-                });
-                // Sort by timestamp (newest first)
-                records.sort((a, b) => {
-                    const timeA = a.timestampMs || 0;
-                    const timeB = b.timestampMs || 0;
-                    return timeB - timeA;
-                });
-                updateDisplay();
-            }, (error) => {
-                showAlert('خطأ في تحميل البيانات: ' + error.message, 'error');
-            });
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>محول الإحداثيات - Google Maps to UTM</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         
-        // Save record to Firebase
-        function saveRecord(record) {
-            if (editingId) {
-                // Update existing record
-                recordsRef.child(editingId).update(record)
-                    .then(() => {
-                        showAlert('تم التحديث بنجاح', 'success');
-                        editingId = null;
-                    })
-                    .catch((error) => {
-                        showAlert('خطأ في التحديث: ' + error.message, 'error');
-                    });
-            } else {
-                // Add new record
-                recordsRef.push(record)
-                    .then(() => {
-                        showAlert('تمت الإضافة بنجاح', 'success');
-                    })
-                    .catch((error) => {
-                        showAlert('خطأ في الإضافة: ' + error.message, 'error');
-                    });
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            direction: rtl;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+        }
+        
+        .counter {
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 0;
+        }
+        
+        .form-panel {
+            background: #f8f9fa;
+            padding: 25px;
+            border-left: 2px solid #e0e0e0;
+            max-height: calc(100vh - 150px);
+            overflow-y: auto;
+        }
+        
+        .table-panel {
+            padding: 25px;
+            max-height: calc(100vh - 150px);
+            overflow-y: auto;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #28a745;
+            color: white;
+            margin-bottom: 10px;
+        }
+        
+        .btn-secondary:hover {
+            background: #218838;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .quick-result {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 2px solid #28a745;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .quick-result strong {
+            color: #28a745;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            font-size: 13px;
+        }
+        
+        th, td {
+            padding: 10px 8px;
+            text-align: right;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        th {
+            background: #f8f9fa;
+            color: #333;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .delete-btn, .edit-btn {
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            margin: 0 2px;
+        }
+        
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .delete-btn:hover {
+            background: #c82333;
+        }
+        
+        .edit-btn {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        .edit-btn:hover {
+            background: #e0a800;
+        }
+        
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
         
-        // Delete record from Firebase
-        function deleteRecordFromDB(id) {
-            recordsRef.child(id).remove()
-                .then(() => {
-                    showAlert('تم الحذف', 'success');
-                })
-                .catch((error) => {
-                    showAlert('خطأ في الحذف: ' + error.message, 'error');
-                });
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
         }
         
-        // Clear all records from Firebase
-        function clearAllFromDB() {
-            recordsRef.remove()
-                .then(() => {
-                    showAlert('تم مسح الكل', 'success');
-                })
-                .catch((error) => {
-                    showAlert('خطأ في المسح: ' + error.message, 'error');
-                });
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
+        
+        .kbd-shortcut {
+            display: inline-block;
+            padding: 2px 6px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: monospace;
+            margin-right: 5px;
+        }
+        
+        .form-hint {
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        .action-buttons {
+            position: sticky;
+            bottom: 0;
+            background: #f8f9fa;
+            padding-top: 15px;
+            margin-top: 15px;
+            border-top: 2px solid #e0e0e0;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+        
+        .search-box {
+            margin-bottom: 15px;
+        }
+        
+        .search-box input {
+            padding-right: 35px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+        
+        .comment-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .coord-cell {
+            font-family: 'Courier New', monospace;
+            color: #667eea;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ محول الإحداثيات السريع</h1>
+            <div class="counter">
+                📊 <span id="recordCount">0</span> سجل
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <!-- Form Panel -->
+            <div class="form-panel">
+                <div id="alert"></div>
+                
+                <form id="coordForm">
+                    <div class="form-group">
+                        <label for="entityName">
+                            اسم الجهة *
+                            <span class="kbd-shortcut">Alt+1</span>
+                        </label>
+                        <input type="text" id="entityName" required placeholder="اسم الجهة" accesskey="1" autocomplete="off">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="crn">
+                            CRN *
+                            <span class="kbd-shortcut">Alt+2</span>
+                        </label>
+                        <input type="text" id="crn" required placeholder="رقم CRN" accesskey="2" autocomplete="off">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="googleLink">
+                            رابط Google Maps *
+                            <span class="kbd-shortcut">Alt+3</span>
+                        </label>
+                        <textarea id="googleLink" required placeholder="الصق الرابط هنا" accesskey="3"></textarea>
+                        <div class="form-hint">يتم التحويل تلقائياً عند اللصق</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="comment">
+                            ملاحظات
+                            <span class="kbd-shortcut">Alt+4</span>
+                        </label>
+                        <textarea id="comment" placeholder="أضف ملاحظات (اختياري)" accesskey="4"></textarea>
+                    </div>
+                    
+                    <div id="quickResult"></div>
+                    
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary">
+                            ✅ إضافة السجل <span class="kbd-shortcut">Enter</span>
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="exportToExcel()">
+                            📥 تصدير Excel
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="clearAllRecords()">
+                            🗑️ مسح الكل
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Table Panel -->
+            <div class="table-panel">
+                <div class="search-box">
+                    <input type="text" id="searchBox" placeholder="بحث سريع..." onkeyup="filterTable()">
+                </div>
+                <div id="recordsTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let records = [];
+        let editingId = null;
+        
+        // Load records
+        function loadRecords() {
+            const saved = localStorage.getItem('utmRecords');
+            if (saved) {
+                records = JSON.parse(saved);
+                updateDisplay();
+            }
+        }
+        
+        // Save records
+        function saveRecords() {
+            localStorage.setItem('utmRecords', JSON.stringify(records));
+            updateDisplay();
+        }
+        
+        // UTM conversion
+        function wgs84ToUtm(lat, lon) {
+            const a = 6378137.0;
+            const e = 0.0818191908426;
+            const k0 = 0.9996;
+            const lonOrigin = 33;
+            const falseEasting = 500000;
+            const falseNorthing = 0;
+            
+            const latRad = lat * Math.PI / 180;
+            const lonRad = lon * Math.PI / 180;
+            const lonOriginRad = lonOrigin * Math.PI / 180;
+            
+            const N = a / Math.sqrt(1 - Math.pow(e * Math.sin(latRad), 2));
+            const T = Math.pow(Math.tan(latRad), 2);
+            const C = Math.pow(e * Math.cos(latRad), 2) / (1 - Math.pow(e, 2));
+            const A = (lonRad - lonOriginRad) * Math.cos(latRad);
+            
+            const M = a * ((1 - Math.pow(e, 2) / 4 - 3 * Math.pow(e, 4) / 64 - 5 * Math.pow(e, 6) / 256) * latRad
+                - (3 * Math.pow(e, 2) / 8 + 3 * Math.pow(e, 4) / 32 + 45 * Math.pow(e, 6) / 1024) * Math.sin(2 * latRad)
+                + (15 * Math.pow(e, 4) / 256 + 45 * Math.pow(e, 6) / 1024) * Math.sin(4 * latRad)
+                - (35 * Math.pow(e, 6) / 3072) * Math.sin(6 * latRad));
+            
+            const x = k0 * N * (A + (1 - T + C) * Math.pow(A, 3) / 6
+                + (5 - 18 * T + Math.pow(T, 2) + 72 * C - 58 * Math.pow(e, 2)) * Math.pow(A, 5) / 120) + falseEasting;
+            
+            const y = k0 * (M + N * Math.tan(latRad) * (Math.pow(A, 2) / 2
+                + (5 - T + 9 * C + 4 * Math.pow(C, 2)) * Math.pow(A, 4) / 24
+                + (61 - 58 * T + Math.pow(T, 2) + 600 * C - 330 * Math.pow(e, 2)) * Math.pow(A, 6) / 720)) + falseNorthing;
+            
+            return { x: x.toFixed(4), y: y.toFixed(4) };
+        }
+        
+        // Extract coordinates
+        function extractCoordinates(url) {
+            const patterns = [
+                /@(-?\d+\.\d+),(-?\d+\.\d+)/,
+                /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
+                /place\/(-?\d+(?:\.\d+)?)[°%](\d+(?:\.\d+)?)'([\d.]+)"([NS])\+(-?\d+(?:\.\d+)?)[°%](\d+(?:\.\d+)?)'([\d.]+)"([EW])/
+            ];
+            
+            for (let pattern of patterns) {
+                const match = url.match(pattern);
+                if (match) {
+                    if (pattern === patterns[2]) {
+                        let lat = parseFloat(match[1]) + parseFloat(match[2])/60 + parseFloat(match[3])/3600;
+                        let lon = parseFloat(match[5]) + parseFloat(match[6])/60 + parseFloat(match[7])/3600;
+                        if (match[4] === 'S') lat = -lat;
+                        if (match[8] === 'W') lon = -lon;
+                        return { lat, lon };
+                    } else {
+                        return { 
+                            lat: parseFloat(match[1]), 
+                            lon: parseFloat(match[2]) 
+                        };
+                    }
+                }
+            }
+            return null;
+        }
+        
+        // Auto-convert on paste
+        document.getElementById('googleLink').addEventListener('paste', function(e) {
+            setTimeout(() => {
+                const url = this.value;
+                const coords = extractCoordinates(url);
+                if (coords) {
+                    const utm = wgs84ToUtm(coords.lat, coords.lon);
+                    document.getElementById('quickResult').innerHTML = `
+                        <div class="quick-result">
+                            <strong>✓ تم التحويل:</strong><br>
+                            x = ${utm.x}<br>
+                            y = ${utm.y}
+                        </div>
+                    `;
+                }
+            }, 100);
+        });
+        
+        // Show alert
+        function showAlert(message, type) {
+            const alertDiv = document.getElementById('alert');
+            alertDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => alertDiv.innerHTML = '', 3000);
+        }
+        
+        // Form submission
+        document.getElementById('coordForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const entityName = document.getElementById('entityName').value.trim();
+            const crn = document.getElementById('crn').value.trim();
+            const googleLink = document.getElementById('googleLink').value.trim();
+            const comment = document.getElementById('comment').value.trim();
+            
+            const coords = extractCoordinates(googleLink);
+            
+            if (!coords) {
+                showAlert('رابط غير صحيح', 'error');
+                return;
+            }
+            
+            const utm = wgs84ToUtm(coords.lat, coords.lon);
+            
+            if (editingId) {
+                // Update existing record
+                const index = records.findIndex(r => r.id === editingId);
+                records[index] = {
+                    ...records[index],
+                    entityName,
+                    crn,
+                    x: utm.x,
+                    y: utm.y,
+                    lat: coords.lat.toFixed(7),
+                    lon: coords.lon.toFixed(7),
+                    comment,
+                    updated: new Date().toLocaleString('ar-EG')
+                };
+                showAlert('تم التحديث بنجاح', 'success');
+                editingId = null;
+            } else {
+                // Add new record
+                const record = {
+                    id: Date.now(),
+                    entityName,
+                    crn,
+                    x: utm.x,
+                    y: utm.y,
+                    lat: coords.lat.toFixed(7),
+                    lon: coords.lon.toFixed(7),
+                    comment,
+                    timestamp: new Date().toLocaleString('ar-EG')
+                };
+                records.unshift(record);
+                showAlert('تمت الإضافة بنجاح', 'success');
+            }
+            
+            saveRecords();
+            document.getElementById('coordForm').reset();
+            document.getElementById('quickResult').innerHTML = '';
+            document.getElementById('entityName').focus();
+        });
+        
+        // Edit record
+        function editRecord(id) {
+            const record = records.find(r => r.id === id);
+            if (record) {
+                document.getElementById('entityName').value = record.entityName;
+                document.getElementById('crn').value = record.crn;
+                document.getElementById('comment').value = record.comment || '';
+                document.getElementById('quickResult').innerHTML = `
+                    <div class="quick-result">
+                        <strong>✏️ تعديل السجل</strong><br>
+                        x = ${record.x}<br>
+                        y = ${record.y}
+                    </div>
+                `;
+                editingId = id;
+                document.getElementById('entityName').focus();
+            }
+        }
+        
+        // Delete record
+        function deleteRecord(id) {
+            if (confirm('حذف هذا السجل؟')) {
+                records = records.filter(r => r.id !== id);
+                saveRecords();
+                showAlert('تم الحذف', 'success');
+            }
+        }
+        
+        // Clear all
+        function clearAllRecords() {
+            if (confirm('حذف جميع السجلات؟')) {
+                records = [];
+                saveRecords();
+                showAlert('تم مسح الكل', 'success');
+            }
+        }
+        
+        // Filter table
+        function filterTable() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            const rows = document.querySelectorAll('#recordsTable tbody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        }
+        
+        // Update display
+        function updateDisplay() {
+            document.getElementById('recordCount').textContent = records.length;
+            
+            if (records.length === 0) {
+                document.getElementById('recordsTable').innerHTML = `
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+                        </svg>
+                        <h3>لا توجد سجلات بعد</h3>
+                        <p>ابدأ بإضافة أول سجل</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>اسم الجهة</th>
+                            <th>CRN</th>
+                            <th>X</th>
+                            <th>Y</th>
+                            <th>ملاحظات</th>
+                            <th>التاريخ</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            records.forEach(record => {
+                tableHTML += `
+                    <tr>
+                        <td>${record.entityName}</td>
+                        <td>${record.crn}</td>
+                        <td class="coord-cell">${record.x}</td>
+                        <td class="coord-cell">${record.y}</td>
+                        <td class="comment-cell" title="${record.comment || ''}">${record.comment || '-'}</td>
+                        <td style="font-size: 11px;">${record.timestamp}</td>
+                        <td style="white-space: nowrap;">
+                            <button class="edit-btn" onclick="editRecord(${record.id})">✏️</button>
+                            <button class="delete-btn" onclick="deleteRecord(${record.id})">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += '</tbody></table>';
+            document.getElementById('recordsTable').innerHTML = tableHTML;
+        }
+        
+        // Export to Excel
+        function exportToExcel() {
+            if (records.length === 0) {
+                showAlert('لا توجد بيانات للتصدير', 'error');
+                return;
+            }
+            
+            const data = records.map(r => ({
+                'اسم الجهة': r.entityName,
+                'CRN': r.crn,
+                'X': r.x,
+                'Y': r.y,
+                'Latitude': r.lat,
+                'Longitude': r.lon,
+                'ملاحظات': r.comment || '',
+                'التاريخ': r.timestamp
+            }));
+            
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Coordinates");
+            
+            const fileName = `utm_coordinates_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            
+            showAlert('تم التصدير بنجاح', 'success');
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                document.getElementById('coordForm').dispatchEvent(new Event('submit'));
+            }
+        });
+        
+        // Initialize
+        loadRecords();
+        document.getElementById('entityName').focus();
+    </script>
+</body>
+</html>
