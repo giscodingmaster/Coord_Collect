@@ -1,406 +1,81 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>محول الإحداثيات - Google Maps to UTM</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>محول الإحداثيات - Firebase Edition</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- SheetJS (XLSX) for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <!-- React and ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel Standalone for in-browser JSX transpilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-            direction: rtl;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            overflow: hidden;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 25px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .header h1 {
-            font-size: 24px;
-        }
-        
-        .counter {
-            background: rgba(255,255,255,0.2);
-            padding: 10px 20px;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        
-        .main-content {
-            display: grid;
-            grid-template-columns: 400px 1fr;
-            gap: 0;
-        }
-        
-        .form-panel {
-            background: #f8f9fa;
-            padding: 25px;
-            border-left: 2px solid #e0e0e0;
-            max-height: calc(100vh - 150px);
-            overflow-y: auto;
-        }
-        
-        .table-panel {
-            padding: 25px;
-            max-height: calc(100vh - 150px);
-            overflow-y: auto;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 600;
-            color: #333;
-            font-size: 13px;
-        }
-        
-        input, textarea {
-            width: 100%;
-            padding: 10px 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.2s;
-            font-family: inherit;
-        }
-        
-        input:focus, textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
-        textarea {
-            resize: vertical;
-            min-height: 60px;
-        }
-        
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 100%;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            margin-bottom: 10px;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-        
-        .btn-secondary {
-            background: #28a745;
-            color: white;
-            margin-bottom: 10px;
-        }
-        
-        .btn-secondary:hover {
-            background: #218838;
-        }
-        
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .btn-danger:hover {
-            background: #c82333;
-        }
-        
-        .quick-result {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            border: 2px solid #28a745;
-            font-size: 12px;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .quick-result strong {
-            color: #28a745;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            font-size: 13px;
-        }
-        
-        th, td {
-            padding: 10px 8px;
-            text-align: right;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        th {
-            background: #f8f9fa;
-            color: #333;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        
-        tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .delete-btn, .edit-btn {
-            border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 11px;
-            margin: 0 2px;
-        }
-        
-        .delete-btn {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .delete-btn:hover {
-            background: #c82333;
-        }
-        
-        .edit-btn {
-            background: #ffc107;
-            color: #000;
-        }
-        
-        .edit-btn:hover {
-            background: #e0a800;
-        }
-        
-        .alert {
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 13px;
-            animation: slideIn 0.3s ease;
-        }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .kbd-shortcut {
-            display: inline-block;
-            padding: 2px 6px;
-            background: #e0e0e0;
-            border-radius: 4px;
-            font-size: 11px;
-            font-family: monospace;
-            margin-right: 5px;
-        }
-        
-        .form-hint {
-            font-size: 11px;
-            color: #666;
-            margin-top: 4px;
-        }
-        
-        .action-buttons {
-            position: sticky;
-            bottom: 0;
-            background: #f8f9fa;
-            padding-top: 15px;
-            margin-top: 15px;
-            border-top: 2px solid #e0e0e0;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #999;
-        }
-        
-        .empty-state svg {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 20px;
-            opacity: 0.3;
-        }
-        
-        .search-box {
-            margin-bottom: 15px;
-        }
-        
-        .search-box input {
-            padding-right: 35px;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-        }
-        
-        .comment-cell {
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        
-        .coord-cell {
-            font-family: 'Courier New', monospace;
-            color: #667eea;
-            font-weight: 600;
-        }
+        body { font-family: 'Inter', sans-serif; }
+        @import url('https://rsms.me/inter/inter.css');
     </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🗺️ محول الإحداثيات السريع</h1>
-            <div class="counter">
-                📊 <span id="recordCount">0</span> سجل
-            </div>
-        </div>
-        
-        <div class="main-content">
-            <!-- Form Panel -->
-            <div class="form-panel">
-                <div id="alert"></div>
-                
-                <form id="coordForm">
-                    <div class="form-group">
-                        <label for="entityName">
-                            اسم الجهة *
-                            <span class="kbd-shortcut">Alt+1</span>
-                        </label>
-                        <input type="text" id="entityName" required placeholder="اسم الجهة" accesskey="1" autocomplete="off">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="crn">
-                            CRN *
-                            <span class="kbd-shortcut">Alt+2</span>
-                        </label>
-                        <input type="text" id="crn" required placeholder="رقم CRN" accesskey="2" autocomplete="off">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="googleLink">
-                            رابط Google Maps *
-                            <span class="kbd-shortcut">Alt+3</span>
-                        </label>
-                        <textarea id="googleLink" required placeholder="الصق الرابط هنا" accesskey="3"></textarea>
-                        <div class="form-hint">يتم التحويل تلقائياً عند اللصق</div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="comment">
-                            ملاحظات
-                            <span class="kbd-shortcut">Alt+4</span>
-                        </label>
-                        <textarea id="comment" placeholder="أضف ملاحظات (اختياري)" accesskey="4"></textarea>
-                    </div>
-                    
-                    <div id="quickResult"></div>
-                    
-                    <div class="action-buttons">
-                        <button type="submit" class="btn btn-primary">
-                            ✅ إضافة السجل <span class="kbd-shortcut">Enter</span>
-                        </button>
-                        <button type="button" class="btn btn-secondary" onclick="exportToExcel()">
-                            📥 تصدير Excel
-                        </button>
-                        <button type="button" class="btn btn-danger" onclick="clearAllRecords()">
-                            🗑️ مسح الكل
-                        </button>
-                    </div>
-                </form>
-            </div>
-            
-            <!-- Table Panel -->
-            <div class="table-panel">
-                <div class="search-box">
-                    <input type="text" id="searchBox" placeholder="بحث سريع..." onkeyup="filterTable()">
-                </div>
-                <div id="recordsTable"></div>
-            </div>
-        </div>
-    </div>
+    <div id="root"></div>
 
-    <script>
-        let records = [];
-        let editingId = null;
+    <script type="text/babel" data-type="module">
+        //======================================================================
+        // BUNDLED REACT + FIREBASE APPLICATION
+        //======================================================================
+
+        const { useState, useEffect, useCallback, useMemo, useRef } = React;
+        const { createRoot } = ReactDOM;
         
-        // Load records
-        function loadRecords() {
-            const saved = localStorage.getItem('utmRecords');
-            if (saved) {
-                records = JSON.parse(saved);
-                updateDisplay();
-            }
-        }
-        
-        // Save records
-        function saveRecords() {
-            localStorage.setItem('utmRecords', JSON.stringify(records));
-            updateDisplay();
-        }
-        
-        // UTM conversion
+        // Correctly import Firebase v9 SDK functions
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getDatabase, ref, onValue, set, push, remove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+        //======================================================================
+        // 1. FIREBASE CONFIGURATION (IMPORTANT!)
+        //======================================================================
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyBZByigYzVFczxSpLnhxbHMZURWfQCjpW8",
+          authDomain: "coord-collect.firebaseapp.com",
+          databaseURL: "https://coord-collect-default-rtdb.firebaseio.com",
+          projectId: "coord-collect",
+          storageBucket: "coord-collect.appspot.com",
+          messagingSenderId: "694407331617",
+          appId: "1:694407331617:web:6c3e3f90ba82c465cac860",
+          measurementId: "G-Y0K8C4YBWV"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const recordsRef = ref(db, 'records');
+
+        //======================================================================
+        // 2. TYPES & SERVICES
+        //======================================================================
+
+        // --- Types ---
+        // CoordinateRecord is implicitly defined by its usage
+
+        // --- Conversion Service ---
         function wgs84ToUtm(lat, lon) {
             const a = 6378137.0;
             const e = 0.0818191908426;
@@ -408,40 +83,39 @@
             const lonOrigin = 33;
             const falseEasting = 500000;
             const falseNorthing = 0;
-            
+
             const latRad = lat * Math.PI / 180;
             const lonRad = lon * Math.PI / 180;
             const lonOriginRad = lonOrigin * Math.PI / 180;
-            
+
             const N = a / Math.sqrt(1 - Math.pow(e * Math.sin(latRad), 2));
             const T = Math.pow(Math.tan(latRad), 2);
             const C = Math.pow(e * Math.cos(latRad), 2) / (1 - Math.pow(e, 2));
             const A = (lonRad - lonOriginRad) * Math.cos(latRad);
-            
+
             const M = a * ((1 - Math.pow(e, 2) / 4 - 3 * Math.pow(e, 4) / 64 - 5 * Math.pow(e, 6) / 256) * latRad
                 - (3 * Math.pow(e, 2) / 8 + 3 * Math.pow(e, 4) / 32 + 45 * Math.pow(e, 6) / 1024) * Math.sin(2 * latRad)
                 + (15 * Math.pow(e, 4) / 256 + 45 * Math.pow(e, 6) / 1024) * Math.sin(4 * latRad)
                 - (35 * Math.pow(e, 6) / 3072) * Math.sin(6 * latRad));
-            
+
             const x = k0 * N * (A + (1 - T + C) * Math.pow(A, 3) / 6
                 + (5 - 18 * T + Math.pow(T, 2) + 72 * C - 58 * Math.pow(e, 2)) * Math.pow(A, 5) / 120) + falseEasting;
-            
+
             const y = k0 * (M + N * Math.tan(latRad) * (Math.pow(A, 2) / 2
                 + (5 - T + 9 * C + 4 * Math.pow(C, 2)) * Math.pow(A, 4) / 24
                 + (61 - 58 * T + Math.pow(T, 2) + 600 * C - 330 * Math.pow(e, 2)) * Math.pow(A, 6) / 720)) + falseNorthing;
-            
+
             return { x: x.toFixed(4), y: y.toFixed(4) };
         }
-        
-        // Extract coordinates
+
         function extractCoordinates(url) {
             const patterns = [
                 /@(-?\d+\.\d+),(-?\d+\.\d+)/,
                 /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
                 /place\/(-?\d+(?:\.\d+)?)[°%](\d+(?:\.\d+)?)'([\d.]+)"([NS])\+(-?\d+(?:\.\d+)?)[°%](\d+(?:\.\d+)?)'([\d.]+)"([EW])/
             ];
-            
-            for (let pattern of patterns) {
+
+            for (const pattern of patterns) {
                 const match = url.match(pattern);
                 if (match) {
                     if (pattern === patterns[2]) {
@@ -460,229 +134,470 @@
             }
             return null;
         }
+
+        //======================================================================
+        // 3. REACT COMPONENTS
+        //======================================================================
+
+        // --- Alert Component ---
+        const Alert = ({ message, type }) => {
+            const baseClasses = "flex items-center p-4 min-w-[320px] max-w-md bg-white rounded-lg shadow-lg border-l-4";
+            const typeClasses = {
+                success: "border-green-500",
+                error: "border-red-500",
+            };
+            const iconClasses = {
+                success: "text-green-500",
+                error: "text-red-500",
+            }
+
+            return (
+                <div className={`${baseClasses} ${typeClasses[type]}`} role="alert">
+                    <div className={`inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClasses[type]}`}>
+                        {type === 'success' ? 
+                            <svg className="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5Zm3.707 8.207-4 4a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L9 10.586l3.293-3.293a1 1 0 0 1 1.414 1.414Z"/>
+                            </svg> :
+                            <svg className="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5ZM10 15a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1-4a1 1 0 0 1-2 0V6a1 1 0 0 1 2 0v5Z"/>
+                            </svg>
+                        }
+                    </div>
+                    <div className="ms-3 text-sm font-medium text-gray-700">
+                        {message}
+                    </div>
+                </div>
+            );
+        };
         
-        // Auto-convert on paste
-        document.getElementById('googleLink').addEventListener('paste', function(e) {
-            setTimeout(() => {
-                const url = this.value;
-                const coords = extractCoordinates(url);
-                if (coords) {
-                    const utm = wgs84ToUtm(coords.lat, coords.lon);
-                    document.getElementById('quickResult').innerHTML = `
-                        <div class="quick-result">
-                            <strong>✓ تم التحويل:</strong><br>
-                            x = ${utm.x}<br>
-                            y = ${utm.y}
+        // --- EmptyState Component ---
+        const EmptyState = () => {
+            return (
+                <div className="text-center py-24 px-6 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg mt-4">
+                    <svg className="w-16 h-16 mx-auto mb-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 13.5l3 3m0 0l3-3m-3 3v-6m1.06-4.19l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                    </svg>
+                    <h3 className="text-lg font-semibold text-gray-700">لا توجد سجلات لعرضها</h3>
+                    <p className="mt-2 text-sm">ابدأ بإضافة سجل جديد باستخدام النموذج على اليسار</p>
+                </div>
+            );
+        };
+
+        // --- Header Component ---
+        const Header = ({ recordCount }) => {
+            return (
+                <header className="bg-white text-gray-800 p-6 border-b border-gray-200 flex justify-between items-center">
+                    <h1 className="text-2xl font-semibold">
+                        <span role="img" aria-label="map icon" className="mr-3">🗺️</span>
+                        محول الإحداثيات
+                    </h1>
+                    <div className="bg-gray-100 text-gray-600 px-4 py-1.5 rounded-full text-sm font-medium">
+                        <span role="img" aria-label="chart icon" className="mr-2">📊</span>
+                        <span id="recordCount">{recordCount}</span> سجل
+                    </div>
+                </header>
+            );
+        };
+
+        // --- KbdShortcut Component ---
+        const KbdShortcut = ({ children }) => (
+            <span className="inline-block px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-gray-600 text-[10px] font-mono ms-2">
+                {children}
+            </span>
+        );
+        
+        // --- FormPanel Component ---
+        const FormPanel = ({
+            entityName, setEntityName, crn, setCrn, googleLink, setGoogleLink, comment, setComment,
+            quickResult, setQuickResult, handleSubmit, handleExport, handleClearAll, isEditing, entityNameRef
+        }) => {
+            
+            const handlePaste = useCallback((e) => {
+                const pastedText = e.clipboardData.getData('text');
+                setTimeout(() => {
+                    const url = pastedText;
+                    const coords = extractCoordinates(url);
+                    if (coords) {
+                        const utm = wgs84ToUtm(coords.lat, coords.lon);
+                        setQuickResult(utm);
+                    } else {
+                        setQuickResult(null);
+                    }
+                }, 100);
+            }, [setQuickResult]);
+
+            return (
+                <div className="bg-gray-50 p-6 border-s-0 lg:border-s-2 border-gray-200 max-h-[calc(100vh-160px)] lg:max-h-auto overflow-y-auto">
+                    <form onSubmit={handleSubmit} className="flex flex-col h-full">
+                        <div className="flex-grow">
+                            <div className="mb-4">
+                                <label htmlFor="entityName" className="block mb-1.5 font-medium text-gray-600 text-xs uppercase tracking-wider">
+                                    اسم الجهة *<KbdShortcut>Alt+1</KbdShortcut>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="entityName"
+                                    ref={entityNameRef}
+                                    value={entityName}
+                                    onChange={(e) => setEntityName(e.target.value)}
+                                    required
+                                    placeholder="اسم الجهة"
+                                    accessKey="1"
+                                    autoComplete="off"
+                                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                                />
+                            </div>
+
+                            <div className="mb-4">
+                                <label htmlFor="crn" className="block mb-1.5 font-medium text-gray-600 text-xs uppercase tracking-wider">
+                                    CRN *<KbdShortcut>Alt+2</KbdShortcut>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="crn"
+                                    value={crn}
+                                    onChange={(e) => setCrn(e.target.value)}
+                                    required
+                                    placeholder="رقم CRN"
+                                    accessKey="2"
+                                    autoComplete="off"
+                                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                                />
+                            </div>
+
+                            <div className="mb-4">
+                                <label htmlFor="googleLink" className="block mb-1.5 font-medium text-gray-600 text-xs uppercase tracking-wider">
+                                    رابط Google Maps *<KbdShortcut>Alt+3</KbdShortcut>
+                                </label>
+                                <textarea
+                                    id="googleLink"
+                                    value={googleLink}
+                                    onChange={(e) => setGoogleLink(e.target.value)}
+                                    onPaste={handlePaste}
+                                    required
+                                    placeholder="الصق الرابط هنا"
+                                    accessKey="3"
+                                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm resize-none min-h-[70px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                                ></textarea>
+                                <div className="text-xs text-gray-500 mt-1">يتم التحويل تلقائياً عند اللصق</div>
+                            </div>
+
+                            <div className="mb-5">
+                                <label htmlFor="comment" className="block mb-1.5 font-medium text-gray-600 text-xs uppercase tracking-wider">
+                                    ملاحظات<KbdShortcut>Alt+4</KbdShortcut>
+                                </label>
+                                <textarea
+                                    id="comment"
+                                    value={comment}
+                                    onChange={(e) => setComment(e.target.value)}
+                                    placeholder="أضف ملاحظات (اختياري)"
+                                    accessKey="4"
+                                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm resize-none min-h-[70px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                                ></textarea>
+                            </div>
+
+                            {quickResult && (
+                                <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md mb-4 font-mono text-sm">
+                                    <strong className="font-sans font-semibold">{isEditing ? '✏️ تعديل السجل:' : '✓ تم التحويل:'}</strong><br />
+                                    x = {quickResult.x}<br />
+                                    y = {quickResult.y}
+                                </div>
+                            )}
                         </div>
-                    `;
+                        
+                        <div className="sticky bottom-0 bg-gray-50 pt-4 -mb-6 -mx-6 px-6 pb-6 border-t border-gray-200">
+                             <button type="submit" className="w-full text-white font-bold py-3 px-4 rounded-md transition duration-150 ease-in-out bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mb-2.5">
+                                {isEditing ? '🔄 تحديث السجل' : '✅ إضافة السجل'} <KbdShortcut>Enter</KbdShortcut>
+                            </button>
+                            <div className="grid grid-cols-2 gap-2.5">
+                                <button type="button" onClick={handleExport} className="w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-bold py-3 px-4 rounded-md transition duration-150 ease-in-out">
+                                    📥 تصدير
+                                </button>
+                                <button type="button" onClick={handleClearAll} className="w-full bg-red-50 hover:bg-red-100 text-red-700 font-bold py-3 px-4 rounded-md transition duration-150 ease-in-out border border-red-200">
+                                    🗑️ مسح الكل
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            );
+        };
+        
+        // --- TablePanel Component ---
+        const TablePanel = ({ records, searchTerm, setSearchTerm, onEdit, onDelete }) => {
+            return (
+                <div className="p-4 sm:p-8 max-h-[calc(100vh-160px)] lg:max-h-auto overflow-y-auto">
+                    <div className="relative mb-4">
+                         <input
+                            type="text"
+                            id="searchBox"
+                            placeholder="بحث في السجلات..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full ps-10 pe-4 py-2.5 bg-gray-50 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                        />
+                        <div className="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                            <svg className="w-4 h-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    {records.length === 0 && !searchTerm ? (
+                        <EmptyState />
+                    ) : (
+                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                            <table className="min-w-full divide-y divide-gray-200 text-sm text-right text-gray-600">
+                                <thead className="bg-gray-50 sticky top-0 z-10">
+                                    <tr>
+                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم الجهة</th>
+                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">CRN</th>
+                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">X</th>
+                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Y</th>
+                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملاحظات</th>
+                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">آخر تحديث</th>
+                                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">إجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {records.map((record, index) => (
+                                        <tr key={record.id} className={index % 2 === 0 ? undefined : 'bg-gray-50'}>
+                                            <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{record.entityName}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">{record.crn}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap font-mono text-gray-800">{record.x}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap font-mono text-gray-800">{record.y}</td>
+                                            <td className="px-6 py-4 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap" title={record.comment}>{record.comment || '-'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">{record.updated || record.timestamp}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-left">
+                                                <button onClick={() => onEdit(record.id)} className="text-blue-600 hover:text-blue-800 font-medium py-1 px-2 rounded-md transition-colors">تعديل</button>
+                                                <button onClick={() => onDelete(record.id)} className="text-red-600 hover:text-red-800 font-medium py-1 px-2 rounded-md transition-colors mr-2">حذف</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                     {records.length === 0 && searchTerm && (
+                        <div className="text-center py-16 px-5 text-gray-500">
+                            <h3 className="text-xl font-semibold text-gray-700">لا توجد نتائج بحث</h3>
+                            <p className="mt-2">حاول استخدام مصطلح بحث مختلف</p>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+        
+        // --- Main App Component ---
+        const App = () => {
+            const [records, setRecords] = useState([]);
+            const [editingId, setEditingId] = useState(null);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [alert, setAlert] = useState(null);
+
+            const [entityName, setEntityName] = useState('');
+            const [crn, setCrn] = useState('');
+            const [googleLink, setGoogleLink] = useState('');
+            const [comment, setComment] = useState('');
+            const [quickResult, setQuickResult] = useState(null);
+            
+            const entityNameRef = useRef(null);
+
+            useEffect(() => {
+                entityNameRef.current?.focus();
+                
+                // Subscribe to real-time updates from Firebase
+                const unsubscribe = onValue(recordsRef, (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        const recordsList = Object.keys(data).map(key => ({
+                            id: key,
+                            ...data[key]
+                        })).sort((a, b) => b.createdAt - a.createdAt); // Sort by creation time descending
+                        setRecords(recordsList);
+                    } else {
+                        setRecords([]);
+                    }
+                });
+
+                // Cleanup subscription on component unmount
+                return () => unsubscribe();
+            }, []);
+
+            const showAlert = (message, type) => {
+                setAlert({ message, type });
+                setTimeout(() => setAlert(null), 3000);
+            };
+
+            const resetForm = useCallback(() => {
+                setEntityName('');
+                setCrn('');
+                setGoogleLink('');
+                setComment('');
+                setQuickResult(null);
+                setEditingId(null);
+                entityNameRef.current?.focus();
+            }, []);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+
+                const coords = extractCoordinates(googleLink);
+                if (!coords) {
+                    showAlert('رابط Google Maps غير صالح أو غير مدعوم', 'error');
+                    return;
                 }
-            }, 100);
-        });
-        
-        // Show alert
-        function showAlert(message, type) {
-            const alertDiv = document.getElementById('alert');
-            alertDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-            setTimeout(() => alertDiv.innerHTML = '', 3000);
-        }
-        
-        // Form submission
-        document.getElementById('coordForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+
+                const utm = wgs84ToUtm(coords.lat, coords.lon);
+                
+                if (editingId) {
+                    const recordToUpdateRef = ref(db, `records/${editingId}`);
+                    const updatedRecord = {
+                        ...records.find(r => r.id === editingId), // preserve original data
+                        entityName,
+                        crn,
+                        x: utm.x,
+                        y: utm.y,
+                        lat: coords.lat.toFixed(7),
+                        lon: coords.lon.toFixed(7),
+                        comment,
+                        updated: new Date().toLocaleString('ar-EG'),
+                    };
+                    set(recordToUpdateRef, updatedRecord)
+                        .then(() => showAlert('تم تحديث السجل بنجاح', 'success'))
+                        .catch(err => showAlert(`خطأ: ${err.message}`, 'error'));
+                } else {
+                    const newRecordRef = push(recordsRef);
+                    const newRecord = {
+                        entityName,
+                        crn,
+                        x: utm.x,
+                        y: utm.y,
+                        lat: coords.lat.toFixed(7),
+                        lon: coords.lon.toFixed(7),
+                        comment,
+                        timestamp: new Date().toLocaleString('ar-EG'),
+                        createdAt: Date.now() // For sorting
+                    };
+                    set(newRecordRef, newRecord)
+                        .then(() => showAlert('تمت إضافة السجل بنجاح', 'success'))
+                        .catch(err => showAlert(`خطأ: ${err.message}`, 'error'));
+                }
+                resetForm();
+            };
             
-            const entityName = document.getElementById('entityName').value.trim();
-            const crn = document.getElementById('crn').value.trim();
-            const googleLink = document.getElementById('googleLink').value.trim();
-            const comment = document.getElementById('comment').value.trim();
+            const handleEdit = (id) => {
+                const record = records.find(r => r.id === id);
+                if (record) {
+                    setEntityName(record.entityName);
+                    setCrn(record.crn);
+                    setComment(record.comment || '');
+                    setGoogleLink(`https://maps.google.com/?q=${record.lat},${record.lon}`);
+                    setQuickResult({ x: record.x, y: record.y });
+                    setEditingId(id);
+                    entityNameRef.current?.focus();
+                }
+            };
             
-            const coords = extractCoordinates(googleLink);
+            const handleDelete = (id) => {
+                if (window.confirm('هل أنت متأكد من حذف هذا السجل؟')) {
+                    const recordToDeleteRef = ref(db, `records/${id}`);
+                    remove(recordToDeleteRef)
+                        .then(() => showAlert('تم حذف السجل', 'success'))
+                        .catch(err => showAlert(`خطأ: ${err.message}`, 'error'));
+                }
+            };
             
-            if (!coords) {
-                showAlert('رابط غير صحيح', 'error');
-                return;
-            }
-            
-            const utm = wgs84ToUtm(coords.lat, coords.lon);
-            
-            if (editingId) {
-                // Update existing record
-                const index = records.findIndex(r => r.id === editingId);
-                records[index] = {
-                    ...records[index],
-                    entityName,
-                    crn,
-                    x: utm.x,
-                    y: utm.y,
-                    lat: coords.lat.toFixed(7),
-                    lon: coords.lon.toFixed(7),
-                    comment,
-                    updated: new Date().toLocaleString('ar-EG')
-                };
-                showAlert('تم التحديث بنجاح', 'success');
-                editingId = null;
-            } else {
-                // Add new record
-                const record = {
-                    id: Date.now(),
-                    entityName,
-                    crn,
-                    x: utm.x,
-                    y: utm.y,
-                    lat: coords.lat.toFixed(7),
-                    lon: coords.lon.toFixed(7),
-                    comment,
-                    timestamp: new Date().toLocaleString('ar-EG')
-                };
-                records.unshift(record);
-                showAlert('تمت الإضافة بنجاح', 'success');
-            }
-            
-            saveRecords();
-            document.getElementById('coordForm').reset();
-            document.getElementById('quickResult').innerHTML = '';
-            document.getElementById('entityName').focus();
-        });
-        
-        // Edit record
-        function editRecord(id) {
-            const record = records.find(r => r.id === id);
-            if (record) {
-                document.getElementById('entityName').value = record.entityName;
-                document.getElementById('crn').value = record.crn;
-                document.getElementById('comment').value = record.comment || '';
-                document.getElementById('quickResult').innerHTML = `
-                    <div class="quick-result">
-                        <strong>✏️ تعديل السجل</strong><br>
-                        x = ${record.x}<br>
-                        y = ${record.y}
+            const handleClearAll = () => {
+                if (window.confirm('هل أنت متأكد من حذف جميع السجلات؟ هذه العملية لا يمكن التراجع عنها.')) {
+                    remove(recordsRef)
+                        .then(() => showAlert('تم مسح جميع السجلات', 'success'))
+                        .catch(err => showAlert(`خطأ: ${err.message}`, 'error'));
+                }
+            };
+
+            const handleExport = () => {
+                if (records.length === 0) {
+                    showAlert('لا توجد بيانات لتصديرها', 'error');
+                    return;
+                }
+                
+                const data = records.map(r => ({
+                    'اسم الجهة': r.entityName,
+                    'CRN': r.crn,
+                    'X': r.x,
+                    'Y': r.y,
+                    'Latitude': r.lat,
+                    'Longitude': r.lon,
+                    'ملاحظات': r.comment || '',
+                    'تاريخ الإنشاء': r.timestamp,
+                    'تاريخ التحديث': r.updated || ''
+                }));
+
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Coordinates");
+                const fileName = `utm_coordinates_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                showAlert('تم تصدير الملف بنجاح', 'success');
+            };
+
+            const filteredRecords = useMemo(() => {
+                if (!searchTerm) return records;
+                return records.filter(record =>
+                    Object.values(record).some(value =>
+                        String(value).toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                );
+            }, [records, searchTerm]);
+
+            return (
+                <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
+                    <div className="container max-w-7xl mx-auto bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                        <Header recordCount={records.length} />
+                        <main className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-0">
+                            <FormPanel
+                                entityName={entityName}
+                                setEntityName={setEntityName}
+                                crn={crn}
+                                setCrn={setCrn}
+                                googleLink={googleLink}
+                                setGoogleLink={setGoogleLink}
+                                comment={comment}
+                                setComment={setComment}
+                                quickResult={quickResult}
+                                setQuickResult={setQuickResult}
+                                handleSubmit={handleSubmit}
+                                handleExport={handleExport}
+                                handleClearAll={handleClearAll}
+                                isEditing={!!editingId}
+                                entityNameRef={entityNameRef}
+                            />
+                            <TablePanel
+                                records={filteredRecords}
+                                searchTerm={searchTerm}
+                                setSearchTerm={setSearchTerm}
+                                onEdit={handleEdit}
+                                onDelete={handleDelete}
+                            />
+                        </main>
+                         {alert && (
+                            <div className="fixed top-5 right-1/2 translate-x-1/2 z-50">
+                                <Alert message={alert.message} type={alert.type} />
+                            </div>
+                         )}
                     </div>
-                `;
-                editingId = id;
-                document.getElementById('entityName').focus();
-            }
-        }
-        
-        // Delete record
-        function deleteRecord(id) {
-            if (confirm('حذف هذا السجل؟')) {
-                records = records.filter(r => r.id !== id);
-                saveRecords();
-                showAlert('تم الحذف', 'success');
-            }
-        }
-        
-        // Clear all
-        function clearAllRecords() {
-            if (confirm('حذف جميع السجلات؟')) {
-                records = [];
-                saveRecords();
-                showAlert('تم مسح الكل', 'success');
-            }
-        }
-        
-        // Filter table
-        function filterTable() {
-            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
-            const rows = document.querySelectorAll('#recordsTable tbody tr');
-            
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
-            });
-        }
-        
-        // Update display
-        function updateDisplay() {
-            document.getElementById('recordCount').textContent = records.length;
-            
-            if (records.length === 0) {
-                document.getElementById('recordsTable').innerHTML = `
-                    <div class="empty-state">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
-                        </svg>
-                        <h3>لا توجد سجلات بعد</h3>
-                        <p>ابدأ بإضافة أول سجل</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            let tableHTML = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>اسم الجهة</th>
-                            <th>CRN</th>
-                            <th>X</th>
-                            <th>Y</th>
-                            <th>ملاحظات</th>
-                            <th>التاريخ</th>
-                            <th>إجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            records.forEach(record => {
-                tableHTML += `
-                    <tr>
-                        <td>${record.entityName}</td>
-                        <td>${record.crn}</td>
-                        <td class="coord-cell">${record.x}</td>
-                        <td class="coord-cell">${record.y}</td>
-                        <td class="comment-cell" title="${record.comment || ''}">${record.comment || '-'}</td>
-                        <td style="font-size: 11px;">${record.timestamp}</td>
-                        <td style="white-space: nowrap;">
-                            <button class="edit-btn" onclick="editRecord(${record.id})">✏️</button>
-                            <button class="delete-btn" onclick="deleteRecord(${record.id})">🗑️</button>
-                        </td>
-                    </tr>
-                `;
-            });
-            
-            tableHTML += '</tbody></table>';
-            document.getElementById('recordsTable').innerHTML = tableHTML;
-        }
-        
-        // Export to Excel
-        function exportToExcel() {
-            if (records.length === 0) {
-                showAlert('لا توجد بيانات للتصدير', 'error');
-                return;
-            }
-            
-            const data = records.map(r => ({
-                'اسم الجهة': r.entityName,
-                'CRN': r.crn,
-                'X': r.x,
-                'Y': r.y,
-                'Latitude': r.lat,
-                'Longitude': r.lon,
-                'ملاحظات': r.comment || '',
-                'التاريخ': r.timestamp
-            }));
-            
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Coordinates");
-            
-            const fileName = `utm_coordinates_${new Date().toISOString().split('T')[0]}.xlsx`;
-            XLSX.writeFile(wb, fileName);
-            
-            showAlert('تم التصدير بنجاح', 'success');
-        }
-        
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === 'Enter') {
-                document.getElementById('coordForm').dispatchEvent(new Event('submit'));
-            }
-        });
-        
-        // Initialize
-        loadRecords();
-        document.getElementById('entityName').focus();
+                </div>
+            );
+        };
+
+        //======================================================================
+        // 4. RENDER THE APPLICATION
+        //======================================================================
+        const container = document.getElementById('root');
+        const root = createRoot(container);
+        root.render(<App />);
     </script>
+<script type="module" src="/index.tsx"></script>
 </body>
 </html>
